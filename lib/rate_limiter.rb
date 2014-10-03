@@ -9,6 +9,8 @@ class RateLimiter
   end
 
   def call(env)
+    return [429, {}, 'Too many requests'] if @remaining == 0
+
     status, headers, response = @app.call(env)
 
     headers['X-RateLimit-Limit']     = @options['limit']
