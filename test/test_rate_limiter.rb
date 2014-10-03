@@ -1,10 +1,11 @@
 require 'test_helper'
+require 'rate_limiter'
 
 class RateLimiterTest < Minitest::Test
   include Rack::Test::Methods
 
   def app
-    lambda { |env| [200, {}, 'App'] }
+    RateLimiter.new(lambda { |env| [200, {}, 'App'] })
   end
 
   def test_server_responds_successfully
