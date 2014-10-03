@@ -32,7 +32,7 @@ class RateLimiterTest < Minitest::Test
     assert last_response.headers.has_key?('X-RateLimit-Remaining')
   end
 
-  def test_middleware_handles_limiting_number_of_requests
+  def test_middleware_handles_decreasing_the_number_of_remaining_requests
     assert_equal 29, last_response.headers['X-RateLimit-Remaining']
 
     4.times { get('/') }
