@@ -13,4 +13,13 @@ class RateLimiterTest < Minitest::Test
     assert last_response.ok?
     assert_equal 'App', last_response.body
   end
+
+  def test_middleware_adds_desired_header
+    get '/'
+
+    headers = last_response.headers
+
+    assert headers.has_key?('X-RateLimit-Limit')
+    assert_equal 60, headers['X-RateLimit-Limit']
+  end
 end
