@@ -27,4 +27,16 @@ class RateLimiterTest < Minitest::Test
   def test_middleware_handles_options_param_with_limit_value
     assert_equal 30, last_response.headers['X-RateLimit-Limit']
   end
+
+  def test_middleware_adds_ratelimit_remaining_header
+    assert last_response.headers.has_key?('X-RateLimit-Remaining')
+  end
+
+  def test_middleware_handles_limiting_number_of_requests
+    assert_equal 29, last_response.headers['X-RateLimit-Remaining']
+
+    4.times { get('/') }
+
+    assert_equal 25, last_response.headers['X-RateLimit-Remaining']
+  end
 end
