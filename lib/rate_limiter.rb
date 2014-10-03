@@ -1,4 +1,4 @@
 require 'rate_limiter/version'
 
-module RateLimiter
+class RateLimiter
 end
