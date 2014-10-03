@@ -5,7 +5,10 @@ class RateLimiterTest < Minitest::Test
   include Rack::Test::Methods
 
   def app
-    RateLimiter.new(lambda { |env| [200, {}, 'App'] })
+    app     = lambda { |env| [200, {}, 'App'] }
+    options = { 'limit' => 30 }
+
+    RateLimiter.new(app, options)
   end
 
   def test_server_responds_successfully
@@ -21,6 +24,11 @@ class RateLimiterTest < Minitest::Test
     headers = last_response.headers
 
     assert headers.has_key?('X-RateLimit-Limit')
-    assert_equal 60, headers['X-RateLimit-Limit']
+  end
+
+  def test_middleware_handles_options_param_with_limit_value
+    get '/'
+
+    assert_equal 30, last_response.headers['X-RateLimit-Limit']
   end
 end
