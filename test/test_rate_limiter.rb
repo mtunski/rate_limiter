@@ -9,7 +9,7 @@ class RateLimiterTest < Minitest::Test
   end
 
   def app
-    app     = lambda { |env| [200, {}, 'App'] }
+    app     = lambda { |env| [200, {'Test-Header' => 'I have received a request!'}, 'App'] }
     options = { 'limit' => 30 }
 
     RateLimiter.new(app, options)
@@ -38,5 +38,18 @@ class RateLimiterTest < Minitest::Test
     4.times { get('/') }
 
     assert_equal 25, last_response.headers['X-RateLimit-Remaining']
+  end
+
+  def test_middleware_handles_limiting_number_of_requests
+    29.times { get('/') }
+
+    assert_equal 0, last_response.headers['X-RateLimit-Remaining']
+    assert last_response.headers.has_key?('Test-Header')
+
+    get('/')
+
+    assert_equal                 429, last_response.status
+    assert_equal 'Too many requests', last_response.body
+    refute last_response.headers.has_key?('Test-Header')
   end
 end
