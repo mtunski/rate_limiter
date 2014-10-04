@@ -2,10 +2,9 @@ require 'rate_limiter/version'
 
 class RateLimiter
   def initialize(app, options={})
-    @app     = app
-    @options = options
-    @options['limit'] ||= 60
-    @remaining = @options['limit']
+    @app       = app
+    @options   = options
+    @remaining = (@options['limit'] ||= 60)
   end
 
   def call(env)
