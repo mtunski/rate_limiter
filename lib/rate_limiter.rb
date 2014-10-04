@@ -4,12 +4,13 @@ class RateLimiter
   def initialize(app, options = {})
     @app       = app
     @options   = options
-    @remaining = (@options['limit'] ||= 60)
+    @remaining = (@options['limit']    ||= 60)
+    @reset_in  = (@options['reset_in'] ||= 3600)
   end
 
   def call(env)
     if @reset && (@reset <= Time.now.to_i)
-      @reset     = (Time.now + 60 * 60).to_i
+      @reset     = (Time.now + @reset_in).to_i
       @remaining = @options['limit']
     end
 
@@ -19,7 +20,7 @@ class RateLimiter
 
     headers['X-RateLimit-Limit']     = @options['limit']
     headers['X-RateLimit-Remaining'] = (@remaining -= 1)
-    headers['X-RateLimit-Reset']     = (@reset ||= (Time.now + 60 * 60).to_i)
+    headers['X-RateLimit-Reset']     = (@reset ||= (Time.now + @reset_in).to_i)
 
     [status, headers, response]
   end
