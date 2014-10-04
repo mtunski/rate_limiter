@@ -9,12 +9,8 @@ class RateLimiter
   end
 
   def call(env)
-    if @reset && (@reset <= Time.now.to_i)
-      @reset     = (Time.now + @reset_in).to_i
-      @remaining = @options['limit']
-    end
-
-    return [429, {}, 'Too many requests'] if @remaining == 0
+    reset_limit               if should_reset?
+    return limit_hit_response if limit_hit?
 
     status, headers, response = @app.call(env)
 
@@ -23,5 +19,24 @@ class RateLimiter
     headers['X-RateLimit-Reset']     = (@reset ||= (Time.now + @reset_in).to_i)
 
     [status, headers, response]
+  end
+
+  private
+
+  def limit_hit?
+    @remaining == 0
+  end
+
+  def limit_hit_response
+    return [429, {}, 'Too many requests']
+  end
+
+  def should_reset?
+    @reset && (@reset <= Time.now.to_i)
+  end
+
+  def reset_limit
+    @reset     = (Time.now + @reset_in).to_i
+    @remaining = @options['limit']
   end
 end
