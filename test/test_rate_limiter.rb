@@ -10,7 +10,7 @@ class RateLimiterTest < Minitest::Test
 
   def app
     app     = lambda { |env| [200, {'Test-Header' => 'I have received a request!'}, 'App'] }
-    options = { 'limit' => 30 }
+    options = { 'limit' => 30, 'reset_in' => 2 * 60 * 60 }
 
     RateLimiter.new(app, options)
   end
@@ -55,7 +55,7 @@ class RateLimiterTest < Minitest::Test
 
   def test_middleware_adds_ratelimit_reset_header
     assert last_response.headers.has_key?('X-RateLimit-Reset')
-    assert_in_delta (Time.now + 60 * 60).to_i, last_response.headers['X-RateLimit-Reset'], 5
+    assert_in_delta (Time.now + 2 * 60 * 60).to_i, last_response.headers['X-RateLimit-Reset'], 5
   end
 
   def test_middleware_handles_resetting_the_limit_of_remaining_requests_and_time_for_next_reset
@@ -63,11 +63,11 @@ class RateLimiterTest < Minitest::Test
 
     assert_equal 25, last_response.headers['X-RateLimit-Remaining']
 
-    Timecop.freeze(Time.now + 61 * 60) do
+    Timecop.freeze(Time.now + 2 * 61 * 60) do
       get('/')
 
       assert_equal 29, last_response.headers['X-RateLimit-Remaining']
-      assert_in_delta (Time.now + 60 * 60).to_i, last_response.headers['X-RateLimit-Reset'], 5
+      assert_in_delta (Time.now + 2 * 60 * 60).to_i, last_response.headers['X-RateLimit-Reset'], 5
     end
   end
 end
