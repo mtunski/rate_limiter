@@ -70,4 +70,14 @@ class RateLimiterTest < Minitest::Test
       assert_in_delta (Time.now + 2 * 60 * 60).to_i, last_response.headers['X-RateLimit-Reset'], 5
     end
   end
+
+  def test_middleware_separates_limit_for_each_client
+    get '/', {}, "REMOTE_ADDR" => "10.0.0.1"
+
+    assert_equal 29, last_response.headers['X-RateLimit-Remaining']
+
+    5.times { get '/', {}, "REMOTE_ADDR" => "10.0.0.2" }
+
+    assert_equal 25, last_response.headers['X-RateLimit-Remaining']
+  end
 end
