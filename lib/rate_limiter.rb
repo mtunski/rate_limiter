@@ -1,54 +1,75 @@
 require 'rate_limiter/version'
 
 class RateLimiter
-  def initialize(app, options = {})
+  def initialize(app, options = {}, &config)
     @app      = app
     @options  = options
     @reset_in = (@options['reset_in'] ||= 3600)
     @clients  = {}
+    @config   = config
   end
 
   def call(env)
-    ip = env['REMOTE_ADDR']
+    if config_provided?
+      if token = token(env)
+        call_with_limit(env, token)
+      else
+        @app.call(env)
+      end
+    else
+      call_with_limit(env)
+    end
+  end
 
-    setup_client(ip)          unless client_registered?(ip)
-    reset_limit(ip)           if should_reset?(ip)
-    return limit_hit_response if limit_hit?(ip)
+  def call_with_limit(env, token = nil)
+    client_id = token || env['REMOTE_ADDR']
+
+    setup_client(client_id)   unless client_registered?(client_id)
+    reset_limit(client_id)    if should_reset?(client_id)
+    return limit_hit_response if limit_hit?(client_id)
 
     status, headers, response = @app.call(env)
 
     headers['X-RateLimit-Limit']     = @options['limit']
-    headers['X-RateLimit-Remaining'] = (@clients[ip]['remaining'] -= 1)
-    headers['X-RateLimit-Reset']     = (@clients[ip]['reset'] ||= (Time.now + @reset_in).to_i)
+    headers['X-RateLimit-Remaining'] = (@clients[client_id]['remaining'] -= 1)
+    headers['X-RateLimit-Reset']     = (@clients[client_id]['reset'] ||= (Time.now + @reset_in).to_i)
 
     [status, headers, response]
   end
 
   private
 
-  def setup_client(ip)
-    @clients[ip]              = {}
-    @clients[ip]['remaining'] = @options['limit']
+  def config_provided?
+    !@config.nil?
   end
 
-  def client_registered?(ip)
-    @clients.has_key?(ip)
+  def token(env)
+    @config.call(env)
   end
 
-  def limit_hit?(ip)
-    @clients[ip]['remaining'] == 0
+  def setup_client(client_id)
+    @clients[client_id]              = {}
+    @clients[client_id]['remaining'] = @options['limit']
+  end
+
+  def client_registered?(client_id)
+    @clients.has_key?(client_id)
+  end
+
+  def limit_hit?(client_id)
+    @clients[client_id]['remaining'] == 0
   end
 
   def limit_hit_response
     return [429, {}, 'Too many requests']
   end
 
-  def should_reset?(ip)
-    @clients[ip]['reset'] && (@clients[ip]['reset'] <= Time.now.to_i)
+  def should_reset?(client_id)
+    @clients[client_id]['reset'] && (@clients[client_id]['reset'] <= Time.now.to_i)
   end
 
-  def reset_limit(ip)
-    @clients[ip]['reset']     = (Time.now + @reset_in).to_i
-    @clients[ip]['remaining'] = @options['limit']
+  def reset_limit(client_id)
+    @clients[client_id]['reset']     = (Time.now + @reset_in).to_i
+    @clients[client_id]['remaining'] = @options['limit']
   end
 end
