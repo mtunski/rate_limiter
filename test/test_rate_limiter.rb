@@ -8,7 +8,7 @@ class RateLimiterTest < Minitest::Test
     app     = lambda { |env| [200, {'Test-Header' => 'I have received a request!'}, 'App'] }
     options = { 'limit' => 30, 'reset_in' => 2 * 60 * 60 }
 
-    RateLimiter.new(app, options)
+    RateLimiter.new(app, options, &@config)
   end
 
   def test_server_responds_successfully
@@ -87,5 +87,21 @@ class RateLimiterTest < Minitest::Test
     10.times { get '/', {}, 'REMOTE_ADDR' => '10.0.0.2' }
 
     assert_equal 20, last_response.headers['X-RateLimit-Remaining']
+  end
+
+  def test_middleware_handles_configuration_block
+    @config = lambda { |env| Rack::Request.new(env).params["api_token"] }
+
+    25.times { get '/', { 'api_token' => 12345 } }
+
+    assert_equal 5, last_response.headers['X-RateLimit-Remaining']
+
+    5.times { get '/', { 'api_token' => 54321 } }
+
+    assert_equal 25, last_response.headers['X-RateLimit-Remaining']
+
+    60.times { get '/', {} }
+
+    assert last_response.ok?
   end
 end
