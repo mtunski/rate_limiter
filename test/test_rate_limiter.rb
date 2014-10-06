@@ -4,10 +4,6 @@ require 'rate_limiter'
 class RateLimiterTest < Minitest::Test
   include Rack::Test::Methods
 
-  def setup
-    get '/'
-  end
-
   def app
     app     = lambda { |env| [200, {'Test-Header' => 'I have received a request!'}, 'App'] }
     options = { 'limit' => 30, 'reset_in' => 2 * 60 * 60 }
@@ -16,23 +12,33 @@ class RateLimiterTest < Minitest::Test
   end
 
   def test_server_responds_successfully
+    get '/'
+
     assert last_response.ok?
     assert_equal 'App', last_response.body
   end
 
   def test_middleware_adds_ratelimit_limit_header
+    get '/'
+
     assert last_response.headers.has_key?('X-RateLimit-Limit')
   end
 
   def test_middleware_handles_options_param_with_limit_value
+    get '/'
+
     assert_equal 30, last_response.headers['X-RateLimit-Limit']
   end
 
   def test_middleware_adds_ratelimit_remaining_header
+    get '/'
+
     assert last_response.headers.has_key?('X-RateLimit-Remaining')
   end
 
   def test_middleware_handles_decreasing_the_number_of_remaining_requests
+    get '/'
+
     assert_equal 29, last_response.headers['X-RateLimit-Remaining']
 
     4.times { get('/') }
@@ -41,7 +47,7 @@ class RateLimiterTest < Minitest::Test
   end
 
   def test_middleware_handles_limiting_number_of_requests
-    29.times { get('/') }
+    30.times { get('/') }
 
     assert_equal 0, last_response.headers['X-RateLimit-Remaining']
     assert last_response.headers.has_key?('Test-Header')
@@ -54,12 +60,14 @@ class RateLimiterTest < Minitest::Test
   end
 
   def test_middleware_adds_ratelimit_reset_header
+    get '/'
+
     assert last_response.headers.has_key?('X-RateLimit-Reset')
     assert_in_delta (Time.now + 2 * 60 * 60).to_i, last_response.headers['X-RateLimit-Reset'], 5
   end
 
   def test_middleware_handles_resetting_the_limit_of_remaining_requests_and_time_for_next_reset
-    4.times { get('/') }
+    5.times { get('/') }
 
     assert_equal 25, last_response.headers['X-RateLimit-Remaining']
 
@@ -76,8 +84,8 @@ class RateLimiterTest < Minitest::Test
 
     assert_equal 25, last_response.headers['X-RateLimit-Remaining']
 
-    get '/'
+    10.times { get '/', {}, 'REMOTE_ADDR' => '10.0.0.2' }
 
-    assert_equal 28, last_response.headers['X-RateLimit-Remaining']
+    assert_equal 20, last_response.headers['X-RateLimit-Remaining']
   end
 end
