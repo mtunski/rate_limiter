@@ -1,17 +1,18 @@
-require 'rate_limiter/version'
+require 'rate_limiter/data_store'
 
 class RateLimiter
   def initialize(app, options = {}, &config)
-    @app      = app
-    @options  = options
-    @reset_in = (@options['reset_in'] ||= 3600)
-    @clients  = {}
-    @config   = config
+    @app        = app
+    @limit      = options['limit']    || 60
+    @reset_in   = options['reset_in'] || 3600
+    @data_store = options['store']    || DataStore.new
+    @config     = config
+    @client     = nil
   end
 
   def call(env)
     if config_provided?
-      if token = token(env)
+      if (token = token(env))
         call_with_limit(env, token)
       else
         @app.call(env)
@@ -23,16 +24,18 @@ class RateLimiter
 
   def call_with_limit(env, token = nil)
     client_id = token || env['REMOTE_ADDR']
+    setup_client unless client_registered?(client_id)
+    @data_store.set(client_id, @client)
 
-    setup_client(client_id)   unless client_registered?(client_id)
-    reset_limit(client_id)    if should_reset?(client_id)
-    return limit_hit_response if limit_hit?(client_id)
+    reset_limit               if should_reset?
+    return limit_hit_response if limit_hit?
+    decrease_remaining
 
     status, headers, response = @app.call(env)
 
-    headers['X-RateLimit-Limit']     = @options['limit']
-    headers['X-RateLimit-Remaining'] = (@clients[client_id]['remaining'] -= 1)
-    headers['X-RateLimit-Reset']     = (@clients[client_id]['reset'] ||= (Time.now + @reset_in).to_i)
+    headers['X-RateLimit-Limit']     = @limit
+    headers['X-RateLimit-Remaining'] = @client['remaining']
+    headers['X-RateLimit-Reset']     = @client['reset_at']
 
     [status, headers, response]
   end
@@ -40,36 +43,43 @@ class RateLimiter
   private
 
   def config_provided?
-    !@config.nil?
+    !!@config
   end
 
   def token(env)
     @config.call(env)
   end
 
-  def setup_client(client_id)
-    @clients[client_id]              = {}
-    @clients[client_id]['remaining'] = @options['limit']
+  def decrease_remaining
+    @client['remaining'] -= 1
+  end
+
+  def setup_client
+    @client              = {}
+    @client['remaining'] = @limit
+    @client['reset_at']  = (Time.now + @reset_in).to_i
   end
 
   def client_registered?(client_id)
-    @clients.has_key?(client_id)
+    !!@data_store.get(client_id)
   end
 
-  def limit_hit?(client_id)
-    @clients[client_id]['remaining'] == 0
+  def limit_hit?
+    @client['remaining'] == 0
   end
 
   def limit_hit_response
-    return [429, {}, 'Too many requests']
+    [429, {}, 'Too many requests']
   end
 
-  def should_reset?(client_id)
-    @clients[client_id]['reset'] && (@clients[client_id]['reset'] <= Time.now.to_i)
+  def should_reset?
+    reset_at = @client['reset_at']
+
+    reset_at && (reset_at <= Time.now.to_i)
   end
 
-  def reset_limit(client_id)
-    @clients[client_id]['reset']     = (Time.now + @reset_in).to_i
-    @clients[client_id]['remaining'] = @options['limit']
+  def reset_limit
+    @client['reset_at']  = (Time.now + @reset_in).to_i
+    @client['remaining'] = @limit
   end
 end
