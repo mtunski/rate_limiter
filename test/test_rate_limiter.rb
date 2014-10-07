@@ -91,6 +91,10 @@ class RateLimiterTest < Minitest::Test
     10.times { get '/', {}, 'REMOTE_ADDR' => '10.0.0.2' }
 
     assert_equal 20, last_response.headers['X-RateLimit-Remaining'].to_i
+
+    10.times { get '/', {}, 'REMOTE_ADDR' => '10.0.0.1' }
+
+    assert_equal 15, last_response.headers['X-RateLimit-Remaining'].to_i
   end
 
   def test_middleware_handles_configuration_block
