@@ -3,9 +3,9 @@ require 'rate_limiter/data_store'
 class RateLimiter
   def initialize(app, options = {}, &config)
     @app        = app
-    @limit      = options['limit']    || 60
-    @reset_in   = options['reset_in'] || 3600
-    @data_store = options['store']    || DataStore.new
+    @limit      = options[:limit]    || 60
+    @reset_in   = options[:reset_in] || 3600
+    @data_store = options[:store]    || DataStore.new
     @config     = config
     @client     = nil
   end
@@ -34,8 +34,8 @@ class RateLimiter
     status, headers, response = @app.call(env)
 
     headers['X-RateLimit-Limit']     = @limit.to_s
-    headers['X-RateLimit-Remaining'] = @client['remaining'].to_s
-    headers['X-RateLimit-Reset']     = @client['reset_at'].to_s
+    headers['X-RateLimit-Remaining'] = @client[:remaining].to_s
+    headers['X-RateLimit-Reset']     = @client[:reset_at].to_s
 
     [status, headers, response]
   end
@@ -51,13 +51,13 @@ class RateLimiter
   end
 
   def decrease_remaining
-    @client['remaining'] -= 1
+    @client[:remaining] -= 1
   end
 
   def setup_client
-    @client              = {}
-    @client['remaining'] = @limit
-    @client['reset_at']  = (Time.now + @reset_in).to_i
+    @client             = {}
+    @client[:remaining] = @limit
+    @client[:reset_at]  = (Time.now + @reset_in).to_i
   end
 
   def client_registered?(client_id)
@@ -65,7 +65,7 @@ class RateLimiter
   end
 
   def limit_hit?
-    @client['remaining'] == 0
+    @client[:remaining] == 0
   end
 
   def limit_hit_response
@@ -73,13 +73,13 @@ class RateLimiter
   end
 
   def should_reset?
-    reset_at = @client['reset_at']
+    reset_at = @client[:reset_at]
 
     reset_at && (reset_at <= Time.now.to_i)
   end
 
   def reset_limit
-    @client['reset_at']  = (Time.now + @reset_in).to_i
-    @client['remaining'] = @limit
+    @client[:reset_at]  = (Time.now + @reset_in).to_i
+    @client[:remaining] = @limit
   end
 end
