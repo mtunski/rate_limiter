@@ -33,9 +33,9 @@ class RateLimiter
 
     status, headers, response = @app.call(env)
 
-    headers['X-RateLimit-Limit']     = @limit
-    headers['X-RateLimit-Remaining'] = @client['remaining']
-    headers['X-RateLimit-Reset']     = @client['reset_at']
+    headers['X-RateLimit-Limit']     = @limit.to_s
+    headers['X-RateLimit-Remaining'] = @client['remaining'].to_s
+    headers['X-RateLimit-Reset']     = @client['reset_at'].to_s
 
     [status, headers, response]
   end
