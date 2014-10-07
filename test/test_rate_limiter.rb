@@ -1,12 +1,16 @@
 require 'test_helper'
+require 'rack/test'
+require 'timecop'
+
 require 'rate_limiter'
 
 class RateLimiterTest < Minitest::Test
   include Rack::Test::Methods
 
   def app
+    store   = DataStore.new
     app     = lambda { |env| [200, {'Test-Header' => 'I have received a request!'}, 'App'] }
-    options = { 'limit' => 30, 'reset_in' => 2 * 60 * 60 }
+    options = { 'limit' => 30, 'reset_in' => 2 * 60 * 60, 'store' => store }
 
     RateLimiter.new(app, options, &@config)
   end
