@@ -11,25 +11,19 @@ class RateLimiter
   end
 
   def call(env)
-    if config_provided?
-      if (token = token(env))
-        call_with_limit(env, token)
-      else
-        @app.call(env)
-      end
-    else
-      call_with_limit(env)
-    end
+    client_id = token(env)
+
+    client_id ? call_with_limit(env, client_id) : @app.call(env)
   end
 
-  def call_with_limit(env, token = nil)
-    client_id = token || env['REMOTE_ADDR']
+  def call_with_limit(env, client_id)
     setup_client unless client_registered?(client_id)
-    @data_store.set(client_id, @client)
 
     reset_limit               if should_reset?
     return limit_hit_response if limit_hit?
     decrease_remaining
+
+    @data_store.set(client_id, @client)
 
     status, headers, response = @app.call(env)
 
@@ -42,12 +36,8 @@ class RateLimiter
 
   private
 
-  def config_provided?
-    !!@config
-  end
-
   def token(env)
-    @config.call(env)
+    @config.nil? ? env['REMOTE_ADDR'] : @config.call(env)
   end
 
   def decrease_remaining
