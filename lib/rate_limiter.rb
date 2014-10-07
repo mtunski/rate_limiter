@@ -17,13 +17,11 @@ class RateLimiter
   end
 
   def call_with_limit(env, client_id)
-    setup_client unless client_registered?(client_id)
+    @client = setup_client(client_id)
 
     reset_limit               if should_reset?
     return limit_hit_response if limit_hit?
     decrease_remaining
-
-    @data_store.set(client_id, @client)
 
     status, headers, response = @app.call(env)
 
@@ -44,10 +42,14 @@ class RateLimiter
     @client[:remaining] -= 1
   end
 
-  def setup_client
+  def setup_client(client_id)
+    return @data_store.get(client_id) if client_registered?(client_id)
+
     @client             = {}
     @client[:remaining] = @limit
     @client[:reset_at]  = (Time.now + @reset_in).to_i
+
+    @data_store.set(client_id, @client)
   end
 
   def client_registered?(client_id)
