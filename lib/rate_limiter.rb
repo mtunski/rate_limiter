@@ -23,6 +23,8 @@ class RateLimiter
     return limit_hit_response if limit_hit?
     decrease_remaining
 
+    @data_store.set(client_id, @client)
+
     status, headers, response = @app.call(env)
 
     headers['X-RateLimit-Limit']     = @limit.to_s
@@ -49,7 +51,7 @@ class RateLimiter
     @client[:remaining] = @limit
     @client[:reset_at]  = (Time.now + @reset_in).to_i
 
-    @data_store.set(client_id, @client)
+    @client
   end
 
   def client_registered?(client_id)
